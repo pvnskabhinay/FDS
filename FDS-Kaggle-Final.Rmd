@@ -1,0 +1,1174 @@
+---
+title: "FDS-Final-Project"
+author: "Pochiraju&Rachuri&Griesi"
+date: "11/29/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+trainfull <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/train.csv')
+trainfull
+str(trainfull)
+train <- trainfull %>%
+  select_if(is.numeric)
+
+library(reshape2)
+#train %>%
+#  cor() %>%
+#  melt() %>%
+#  ggplot() +
+#  geom_tile(aes(x = Var1, y = Var2, fill = value))
+```
+
+# How many missing values(NAs)?
+```{r}
+colSums(is.na(train))
+```
+
+
+```{r}
+train_mean <- colMeans(train, na.rm = T)
+train <- replace_na(train, replace = as.list(train_mean))
+colSums(is.na(train))
+
+# PLOT GrlivArea vs SalePrice
+# GrLivArea: Above grade (ground) living area square feet
+# SalePrice - the property's sale price in dollars. This is the target variable that you're trying to predict.
+#ggplot(train) +
+#  geom_point(aes(x = GrLivArea, y = SalePrice))
+```
+# 1st attempt
+Kaggle score = 0.28918
+Regression of SalePrice vs GrLivArea
+Submision format : Id, SalePrice
+```{r}
+train$SalePrice <- train$SalePrice # Better
+#train$SalePrice <- log(train$SalePrice) # Made it worse
+reg <- lm(SalePrice ~ GrLivArea, data = train)
+summary(reg)
+#try to make our prediction
+test <- read.csv("/Users/venkatapochiraju/Downloads/test.csv")
+test$SalePrice <- predict(reg, newdata = test)
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+```
+
+# 2nd Attempt
+Regression of SalePrice vs OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+X1stFlrSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea
+Submision format : Id, SalePrice
+Taking cor values > 0.5
+Kaggle Score = 0.25407
+```{r}
+# OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+X1stFlrSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea
+cor(train$SalePrice,train)
+train$SalePrice <- train$SalePrice # Better
+#train$SalePrice <- log(train$SalePrice) # Made it worse
+reg <- lm(SalePrice ~ OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+X1stFlrSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea, data = train)
+summary(reg)
+#try to make our prediction
+test <- read.csv("/Users/venkatapochiraju/Downloads/test.csv")
+test$SalePrice <- predict(reg, newdata = test)
+meanSalePrice <- mean(test$SalePrice, na.rm = T)
+test$SalePrice[is.na(test$SalePrice)] <- meanSalePrice
+is.na(test$SalePrice)
+test$SalePrice[test$SalePrice<0] <- meanSalePrice
+
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+```
+
+
+```{r}
+reg <- lm(SalePrice ~ ., data = train)
+summary(reg) # Multiple linearity (may be replicates)
+```
+
+```{r}
+#ggplot(trainfull) +
+#  geom_boxplot(aes(x = MSZoning, y =SalePrice))
+```
+
+```{r}
+#ggplot(trainfull) +
+#  geom_point(aes(x = GrLivArea, y =log(SalePrice), color = MSZoning), alpha = 0.6)+
+#  xlim(c(0,4000))
+```
+
+# 3rd Attempt
+Kaggle score = 0.24780
+```{r}
+train <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/train.csv')
+
+#ggplot(train) +
+#  geom_point(aes(x = GrLivArea, y = SalePrice))
+## Outliers - GrLivArea>4000
+#ggplot(train) +
+#  geom_point(aes(x = LotFrontage, y = SalePrice))
+## Outliers - LotFrontage>200
+#ggplot(train) +
+#  geom_point(aes(x = LotArea, y = SalePrice))
+## Outliers - LotArea>100000
+#ggplot(train) +
+#  geom_point(aes(x = MasVnrArea, y = SalePrice))
+## Outliers - MasVnrArea>1250
+#ggplot(train) +
+#  geom_point(aes(x = TotalBsmtSF, y = SalePrice))
+## Outliers - TotalBsmtSF>6000
+train[train$GrLivArea>4000,]$GrLivArea <- mean(train$GrLivArea)%>%as.numeric
+#train[train$LotFrontage>200,]$LotFrontage <- mean(train$LotFrontage)%>%as.numeric
+train[train$LotArea>100000,]$LotArea <- mean(train$LotArea)%>%as.numeric
+#train[train$MasVnrArea>1250,]$MasVnrArea <- mean(train$MasVnrArea)%>%as.numeric
+train[train$TotalBsmtSF>6000,]$TotalBsmtSF <- mean(train$TotalBsmtSF)%>%as.numeric
+
+
+train <- train %>%
+  select_if(is.numeric)
+train_mean <- colMeans(train, na.rm = T)
+train <- replace_na(train, replace = as.list(train_mean))
+colSums(is.na(train))
+
+cor(train$SalePrice,train)
+reg <- lm(SalePrice ~ OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+X1stFlrSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea, data = train)
+summary(reg)
+#try to make our prediction
+test <- read.csv("/Users/venkatapochiraju/Downloads/test.csv")
+test$SalePrice <- predict(reg, newdata = test)
+meanSalePrice <- mean(test$SalePrice, na.rm = T)
+test$SalePrice[is.na(test$SalePrice)] <- meanSalePrice
+is.na(test$SalePrice)
+test$SalePrice[test$SalePrice<0] <- meanSalePrice
+
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+
+```
+
+# 4th Attempt
+Kaggle score = 0.25407
+```{r}
+train <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/train.csv')
+reg <- lm(SalePrice ~ OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+X1stFlrSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea, data = train)
+summary(reg)
+#try to make our prediction
+test <- read.csv("/Users/venkatapochiraju/Downloads/test.csv")
+test$SalePrice <- predict(reg, newdata = test)
+meanSalePrice <- mean(test$SalePrice, na.rm = T)
+test$SalePrice[is.na(test$SalePrice)] <- meanSalePrice
+is.na(test$SalePrice)
+test$SalePrice[test$SalePrice<0] <- meanSalePrice
+
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+
+```
+
+# 5th attempt
+Kaggle score = 0.40845
+```{r}
+train <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/train.csv', stringsAsFactors=FALSE)
+
+# Lets try to make all the variables numeric, looking at the list of data - data_description.txt
+# MSZoning
+table(train$MSZoning)
+train$Zoning[train$MSZoning == 'C (all)'] <- 1
+train$Zoning[train$MSZoning == 'FV'] <- 2
+train$Zoning[train$MSZoning == 'RH'] <- 3
+train$Zoning[train$MSZoning == 'RL'] <- 4
+train$Zoning[train$MSZoning == 'RM'] <- 5
+train$MSZoning <- NULL
+# Street
+table(train$Street)
+train$RoadType[train$Street == 'Grvl'] <- 0
+train$RoadType[train$Street == 'Pave'] <- 1
+train$Street <- NULL
+# Alley
+table(train$Alley)
+train$AlleyType[train$Alley == 'Grvl'] <- 0
+train$AlleyType[train$Alley == 'Pave'] <- 1
+train$Alley <- NULL
+# LotShape
+table(train$LotShape)
+train$Shape[train$LotShape == 'Reg'] <- 0
+train$Shape[train$LotShape != 'Reg'] <- 1  # 925 are regular, IR1, IR2, IR3 are a lot less
+train$LotShape <- NULL
+# LandCountour  
+table(train$LandContour)
+train$Flatness[train$LandContour == 'Lvl'] <- 0
+train$Flatness[train$LandContour != 'Lvl'] <- 1 # 1131 are flat, others are a lot less
+train$LandContour <- NULL
+# Utilities
+table(train$Utilities)
+train$UtilType[train$Utilities != 'AllPub'] <- 0
+train$UtilType[train$Utilities == 'AllPub'] <- 1
+train$Utilities <- NULL
+# LotConfig
+table(train$LotConfig)
+train$LotCon[train$LotConfig == 'Corner'] <- 1
+train$LotCon[train$LotConfig == 'CulDSac'] <- 2
+train$LotCon[train$LotConfig == 'FR2'] <- 3
+train$LotCon[train$LotConfig == 'FR3'] <- 4
+train$LotCon[train$LotConfig == 'Inside'] <- 5
+train$LotConfig <- NULL
+# LandSlope
+table(train$LandSlope)
+train$Slope[train$LandSlope != 'Gtl'] <- 0
+train$Slope[train$LandSlope == 'Gtl'] <- 1
+train$LandSlope <- NULL
+# BldgType
+table(train$BldgType)
+train$BuildingType[train$BldgType == '1Fam'] <- 1
+train$BuildingType[train$BldgType == 'TwnhsE'] <- 1
+train$BuildingType[train$BldgType != '1Fam'] <- 0
+train$BuildingType[train$BldgType != 'TwnhsE'] <- 0
+train$BldgType <- NULL
+# HouseStyle
+table(train$HouseStyle)
+#ggplot(train) +
+#    geom_point(aes(x = HouseStyle, y = SalePrice))
+train$HouseStyle[train$HouseStyle == '1.5Fin'] <- 1
+train$HouseStyle[train$HouseStyle == '1.5Unf'] <- 2
+train$HouseStyle[train$HouseStyle == '1Story'] <- 3
+train$HouseStyle[train$HouseStyle == '2.5Fin'] <- 4
+train$HouseStyle[train$HouseStyle == '2.5Unf'] <- 5
+train$HouseStyle[train$HouseStyle == '2Story'] <- 6
+train$HouseStyle[train$HouseStyle == 'SFoyer'] <- 7
+train$HouseStyle[train$HouseStyle == 'SLvl'] <- 8
+train$HouseStyle <- NULL
+# RoofStyle
+table(train$RoofStyle)
+# As Gable, Hip, and Shed are almost of similar structure, lets group them together
+train$RoofType[!train$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 0
+train$RoofType[train$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 1
+train$RoofStyle <- NULL
+# RoofMatl
+table(train$RoofMatl)
+train$RoofMaterial[train$RoofMatl == 'ClyTile'] <- 1
+train$RoofMaterial[train$RoofMatl == 'CompShg'] <- 2
+train$RoofMaterial[train$RoofMatl == 'Membran'] <- 3
+train$RoofMaterial[train$RoofMatl == 'Metal'] <- 4
+train$RoofMaterial[train$RoofMatl == 'Roll'] <- 5
+train$RoofMaterial[train$RoofMatl == 'Tar&Grv'] <- 6
+train$RoofMaterial[train$RoofMatl == 'WdShake'] <- 7
+train$RoofMaterial[train$RoofMatl == 'WdShngl'] <- 8
+train$RoofMatl <- NULL
+# MasVnrType
+table(train$MasVnrType)
+#cor(train$SalePrice,train)
+train$MasonryType[train$MasVnrType == 'None'] <- 0
+train$MasonryType[train$MasVnrType != 'None'] <- 1
+train$MasVnrType <- NULL
+# ExterQual
+table(train$ExterQual)
+train$ExtQuality[train$ExterQual == 'Ex'] <- 1
+train$ExtQuality[train$ExterQual == 'Fa'] <- 2
+train$ExtQuality[train$ExterQual == 'Gd'] <- 3
+train$ExtQuality[train$ExterQual == 'TA'] <- 4
+train$ExterQual <- NULL
+# ExterCond
+table(train$ExterCond)
+train$ExtCond[train$ExterCond == 'Ex'] <- 1  
+train$ExtCond[train$ExterCond == 'Fa'] <- 2  
+train$ExtCond[train$ExterCond == 'Gd'] <- 3  
+train$ExtCond[train$ExterCond == 'Po'] <- 4  
+train$ExtCond[train$ExterCond == 'TA'] <- 5
+train$ExterCond <- NULL
+# Foundation
+table(train$Foundation)
+train$FoundationType[train$Foundation == 'BrkTil'] <- 1
+train$FoundationType[train$Foundation == 'CBlock'] <- 2
+train$FoundationType[train$Foundation == 'PConc'] <- 3
+train$FoundationType[train$Foundation == 'Slab'] <- 4
+train$FoundationType[train$Foundation == 'Stone'] <- 5
+train$FoundationType[train$Foundation == 'Wood'] <- 6
+train$Foundation <- NULL
+# BsmtQual
+table(train$BsmtQual)
+train$BasementQual[train$BsmtQual == 'Ex'] <- 1
+train$BasementQual[train$BsmtQual == 'Fa'] <- 2
+train$BasementQual[train$BsmtQual == 'Gd'] <- 3
+train$BasementQual[train$BsmtQual == 'TA'] <- 4
+train$BasementQual[train$BsmtQual == 'NA'] <- 5
+train$BsmtQual <- NULL
+# BsmtCond
+table(train$BsmtCond)
+train$BasementCond[train$BsmtCond == 'Fa'] <- 1
+train$BasementCond[train$BsmtCond == 'Gd'] <- 2
+train$BasementCond[train$BsmtCond == 'Po'] <- 3
+train$BasementCond[train$BsmtCond == 'TA'] <- 4
+train$BasementCond[train$BsmtCond == 'NA'] <- 5
+train$BsmtCond <- NULL
+# BsmtExposure
+table(train$BsmtExposure)
+train$BasementExp[train$BsmtExposure == 'Av'] <- 1
+train$BasementExp[train$BsmtExposure == 'Gd'] <- 2
+train$BasementExp[train$BsmtExposure == 'Mn'] <- 3
+train$BasementExp[train$BsmtExposure == 'No'] <- 4
+train$BasementExp[train$BsmtExposure == 'NA'] <- 5
+train$BsmtExposure <- NULL
+# BsmtFinType1
+table(train$BsmtFinType1)
+train$BasementFin1[train$BsmtFinType1 == 'NA'] <- 1
+train$BasementFin1[train$BsmtFinType1 == 'ALQ'] <- 2
+train$BasementFin1[train$BsmtFinType1 == 'BLQ'] <- 3
+train$BasementFin1[train$BsmtFinType1 == 'GLQ'] <- 4
+train$BasementFin1[train$BsmtFinType1 == 'LwQ'] <- 5
+train$BasementFin1[train$BsmtFinType1 == 'Rec'] <- 6
+train$BasementFin1[train$BsmtFinType1 == 'Unf'] <- 7
+train$BsmtFinType1 <- NULL
+# BsmtFinType2
+table(train$BsmtFinType2)
+train$BasementFin2[train$BsmtFinType2 == 'NA'] <- 1
+train$BasementFin2[train$BsmtFinType2 == 'ALQ'] <- 2
+train$BasementFin2[train$BsmtFinType2 == 'BLQ'] <- 3
+train$BasementFin2[train$BsmtFinType2 == 'GLQ'] <- 4
+train$BasementFin2[train$BsmtFinType2 == 'LwQ'] <- 5
+train$BasementFin2[train$BsmtFinType2 == 'Rec'] <- 6
+train$BasementFin2[train$BsmtFinType2 == 'Unf'] <- 7
+train$BsmtFinType2 <- NULL
+# Heating
+table(train$Heating)
+train$HeatingGAS[!train$Heating %in% c("GasA", "GasW")] <- 0
+train$HeatingGAS[train$Heating %in% c("GasA", "GasW")] <- 1
+train$Heating <- NULL
+# HeatingQC
+table(train$HeatingQC)
+train$HeatQuality[train$HeatingQC == "Ex"] <- 1
+train$HeatQuality[train$HeatingQC == "Gd"] <- 2
+train$HeatQuality[train$HeatingQC == "TA"] <- 3
+train$HeatQuality[train$HeatingQC == "Fa"] <- 4
+train$HeatQuality[train$HeatingQC == "Po"] <- 5
+train$HeatingQC <- NULL
+# CentralAir
+table(train$CentralAir)
+train$AC[train$CentralAir != 'Y'] <- 0
+train$AC[train$CentralAir == 'Y'] <- 1
+train$CentralAir <- NULL
+# Electrical
+table(train$Electrical)
+train$ElectricalSystem[train$Electrical == 'NA' | train$Electrical == 'SBrkr'] <- 1
+train$ElectricalSystem[train$Electrical != 'NA' & train$Electrical != 'SBrkr'] <- 0
+train$Electrical <- NULL
+# KitchenQual
+table(train$KitchenQual)
+train$KitchenQuality[train$KitchenQual == 'Ex'] <- 1
+train$KitchenQuality[train$KitchenQual == 'Fa'] <- 2
+train$KitchenQuality[train$KitchenQual == 'Gd'] <- 3
+train$KitchenQuality[train$KitchenQual == 'TA'] <- 4
+train$KitchenQuality[train$KitchenQual == 'Po'] <- 5
+train$KitchenQual <- NULL
+# Functional
+table(train$Functional)
+train$FunType[train$Functional != 'Typ'] <- 0
+train$FunType[train$Functional == 'Typ'] <- 1
+train$Functional <- NULL
+# Fireplace
+table(train$FireplaceQu)
+train$FirePlaceQuality[train$FireplaceQu == 'Ex'] <- 1
+train$FirePlaceQuality[train$FireplaceQu == 'Fa'] <- 2
+train$FirePlaceQuality[train$FireplaceQu == 'Gd'] <- 3
+train$FirePlaceQuality[train$FireplaceQu == 'TA'] <- 4
+train$FirePlaceQuality[train$FireplaceQu == 'Po'] <- 5
+train$FirePlaceQuality[train$FireplaceQu == 'NA'] <- 6
+train$FireplaceQu <- NULL
+# GarrageTyoe
+table(train$GarageType)
+train$GarrageType[train$GarageType == '2Types'] <- 1
+train$GarrageType[train$GarageType == 'Attchd'] <- 2
+train$GarrageType[train$GarageType == 'Basment'] <- 3
+train$GarrageType[train$GarageType == 'BuiltIn'] <- 4
+train$GarrageType[train$GarageType == 'CarPort'] <- 5
+train$GarrageType[train$GarageType == 'Detchd'] <- 6
+train$GarrageType[train$GarageType == 'NA'] <- 7
+train$GarageType <- NULL
+# GarageFinish
+table(train$GarageFinish)
+train$GarageReady[!train$GarageFinish %in% c("Fin", "RFn")] <- 0
+train$GarageReady[train$GarageFinish %in% c("Fin", "RFn")] <- 1
+train$GarageFinish <- NULL
+# GarageQual
+table(train$GarageQual)
+train$GarageQuality[train$GarageQual == 'Ex'] <- 1
+train$GarageQuality[train$GarageQual == 'Fa'] <- 2
+train$GarageQuality[train$GarageQual == 'Gd'] <- 3
+train$GarageQuality[train$GarageQual == 'TA'] <- 4
+train$GarageQuality[train$GarageQual == 'Po'] <- 5
+train$GarageQuality[train$GarageQual == 'NA'] <- 6
+train$GarageQual <- NULL
+# GarageCond
+table(train$GarageCond)
+train$GarageCondition[train$GarageCond == 'Ex'] <- 1
+train$GarageCondition[train$GarageCond == 'Fa'] <- 2
+train$GarageCondition[train$GarageCond == 'Gd'] <- 3
+train$GarageCondition[train$GarageCond == 'TA'] <- 4
+train$GarageCondition[train$GarageCond == 'Po'] <- 5
+train$GarageCondition[train$GarageCond == 'NA'] <- 6
+train$GarageCond <- NULL
+# PavedDrive
+table(train$PavedDrive)
+train$drivewayPaved[train$PavedDrive != 'Y'] <- 0
+train$drivewayPaved[train$PavedDrive == 'Y'] <- 1
+train$drivewayPaved[is.na(train$PavedDrive)] <- 0
+train$PavedDrive <- NULL
+# PoolQC
+table(train$PoolQC)
+train$PoolQuality[train$PoolQC == 'Ex'] <- 1
+train$PoolQuality[train$PoolQC == 'Fa'] <- 2
+train$PoolQuality[train$PoolQC == 'Gd'] <- 3
+train$PoolQuality[train$PoolQC == 'TA'] <- 4
+train$PoolQuality[train$PoolQC == 'NA'] <- 5
+train$PoolQC <- NULL
+# Fence
+table(train$Fence)
+train$FencePrivate[train$Fence != 'GdPrv'] <- 0
+train$FencePrivate[train$Fence == 'GdPrv'] <- 1
+train$Fence <- NULL
+# SaleType
+table(train$SaleType)
+train$SaleTyp[train$SaleType == 'WD' | train$SaleType == 'CWD' | train$SaleType == 'VWD'] <- 1
+train$SaleTyp[train$SaleType == 'New'] <- 2
+train$SaleTyp[train$SaleType == 'COD'] <- 3
+train$SaleTyp[train$SaleType == 'Con' | train$SaleType == 'ConLw' | train$SaleType == 'ConLI' | train$SaleType == 'ConLD'] <- 4
+train$SaleTyp[train$SaleType == 'Oth'] <- 5
+train$SaleType <- NULL
+# SaleCondition
+table(train$SaleCondition)
+train$SaleCond[train$SaleCondition == 'Abnorml'] <- 1
+train$SaleCond[train$SaleCondition == 'AdjLand'] <- 2
+train$SaleCond[train$SaleCondition == 'Alloca'] <- 3
+train$SaleCond[train$SaleCondition == 'Family'] <- 4
+train$SaleCond[train$SaleCondition == 'Normal'] <- 5
+train$SaleCond[train$SaleCondition == 'Partial'] <- 6
+train$SaleCondition <- NULL
+
+colSums(is.na(train))
+train <- train %>%
+  select_if(is.numeric)
+train_mean <- colMeans(train, na.rm = T)
+train <- replace_na(train, replace = as.list(train_mean))
+colSums(is.na(train))
+
+
+reg <- lm(SalePrice ~ ., data = train)
+summary(reg)
+reg <- lm(SalePrice ~ MSSubClass+LotFrontage+LotArea+OverallQual+OverallCond+YearBuilt+MasVnrArea+BsmtFinSF1+X1stFlrSF+X2ndFlrSF+KitchenAbvGr+TotRmsAbvGrd+Fireplaces+GarageCars+WoodDeckSF+RoofMaterial+MasonryType+ExtQuality+BasementQual+BasementExp+KitchenQuality+FunType+PoolQuality, data=train)
+summary(reg)
+
+test <- read.csv("/Users/venkatapochiraju/Downloads/test.csv", stringsAsFactors=FALSE)
+##
+# Lets try to make all the variables numeric, looking at the list of data - data_description.txt
+# MSZoning
+table(test$MSZoning)
+test$Zoning[test$MSZoning == 'C (all)'] <- 1
+test$Zoning[test$MSZoning == 'FV'] <- 2
+test$Zoning[test$MSZoning == 'RH'] <- 3
+test$Zoning[test$MSZoning == 'RL'] <- 4
+test$Zoning[test$MSZoning == 'RM'] <- 5
+test$MSZoning <- NULL
+# Street
+table(test$Street)
+test$RoadType[test$Street == 'Grvl'] <- 0
+test$RoadType[test$Street == 'Pave'] <- 1
+test$Street <- NULL
+# Alley
+table(test$Alley)
+test$AlleyType[test$Alley == 'Grvl'] <- 0
+test$AlleyType[test$Alley == 'Pave'] <- 1
+test$Alley <- NULL
+# LotShape
+table(test$LotShape)
+test$Shape[test$LotShape == 'Reg'] <- 0
+test$Shape[test$LotShape != 'Reg'] <- 1  # 925 are regular, IR1, IR2, IR3 are a lot less
+test$LotShape <- NULL
+# LandCountour  
+table(test$LandContour)
+test$Flatness[test$LandContour == 'Lvl'] <- 0
+test$Flatness[test$LandContour != 'Lvl'] <- 1 # 1131 are flat, others are a lot less
+test$LandContour <- NULL
+# Utilities
+table(test$Utilities)
+test$UtilType[test$Utilities != 'AllPub'] <- 0
+test$UtilType[test$Utilities == 'AllPub'] <- 1
+test$Utilities <- NULL
+# LotConfig
+table(test$LotConfig)
+test$LotCon[test$LotConfig == 'Corner'] <- 1
+test$LotCon[test$LotConfig == 'CulDSac'] <- 2
+test$LotCon[test$LotConfig == 'FR2'] <- 3
+test$LotCon[test$LotConfig == 'FR3'] <- 4
+test$LotCon[test$LotConfig == 'Inside'] <- 5
+test$LotConfig <- NULL
+# LandSlope
+table(test$LandSlope)
+test$Slope[test$LandSlope != 'Gtl'] <- 0
+test$Slope[test$LandSlope == 'Gtl'] <- 1
+test$LandSlope <- NULL
+# BldgType
+table(test$BldgType)
+test$BuildingType[test$BldgType == '1Fam'] <- 1
+test$BuildingType[test$BldgType == 'TwnhsE'] <- 1
+test$BuildingType[test$BldgType != '1Fam'] <- 0
+test$BuildingType[test$BldgType != 'TwnhsE'] <- 0
+test$BldgType <- NULL
+# HouseStyle
+table(test$HouseStyle)
+#ggplot(test) +
+#    geom_point(aes(x = HouseStyle, y = SalePrice))
+test$HouseStyle[test$HouseStyle == '1.5Fin'] <- 1
+test$HouseStyle[test$HouseStyle == '1.5Unf'] <- 2
+test$HouseStyle[test$HouseStyle == '1Story'] <- 3
+test$HouseStyle[test$HouseStyle == '2.5Fin'] <- 4
+test$HouseStyle[test$HouseStyle == '2.5Unf'] <- 5
+test$HouseStyle[test$HouseStyle == '2Story'] <- 6
+test$HouseStyle[test$HouseStyle == 'SFoyer'] <- 7
+test$HouseStyle[test$HouseStyle == 'SLvl'] <- 8
+test$HouseStyle <- NULL
+# RoofStyle
+table(test$RoofStyle)
+# As Gable, Hip, and Shed are almost of similar structure, lets group them together
+test$RoofType[!test$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 0
+test$RoofType[test$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 1
+test$RoofStyle <- NULL
+# RoofMatl
+table(test$RoofMatl)
+test$RoofMaterial[test$RoofMatl == 'ClyTile'] <- 1
+test$RoofMaterial[test$RoofMatl == 'CompShg'] <- 2
+test$RoofMaterial[test$RoofMatl == 'Membran'] <- 3
+test$RoofMaterial[test$RoofMatl == 'Metal'] <- 4
+test$RoofMaterial[test$RoofMatl == 'Roll'] <- 5
+test$RoofMaterial[test$RoofMatl == 'Tar&Grv'] <- 6
+test$RoofMaterial[test$RoofMatl == 'WdShake'] <- 7
+test$RoofMaterial[test$RoofMatl == 'WdShngl'] <- 8
+test$RoofMatl <- NULL
+# MasVnrType
+table(test$MasVnrType)
+#cor(test$SalePrice,test)
+test$MasonryType[test$MasVnrType == 'None'] <- 0
+test$MasonryType[test$MasVnrType != 'None'] <- 1
+test$MasVnrType <- NULL
+# ExterQual
+table(test$ExterQual)
+test$ExtQuality[test$ExterQual == 'Ex'] <- 1
+test$ExtQuality[test$ExterQual == 'Fa'] <- 2
+test$ExtQuality[test$ExterQual == 'Gd'] <- 3
+test$ExtQuality[test$ExterQual == 'TA'] <- 4
+test$ExterQual <- NULL
+# ExterCond
+table(test$ExterCond)
+test$ExtCond[test$ExterCond == 'Ex'] <- 1  
+test$ExtCond[test$ExterCond == 'Fa'] <- 2  
+test$ExtCond[test$ExterCond == 'Gd'] <- 3  
+test$ExtCond[test$ExterCond == 'Po'] <- 4  
+test$ExtCond[test$ExterCond == 'TA'] <- 5
+test$ExterCond <- NULL
+# Foundation
+table(test$Foundation)
+test$FoundationType[test$Foundation == 'BrkTil'] <- 1
+test$FoundationType[test$Foundation == 'CBlock'] <- 2
+test$FoundationType[test$Foundation == 'PConc'] <- 3
+test$FoundationType[test$Foundation == 'Slab'] <- 4
+test$FoundationType[test$Foundation == 'Stone'] <- 5
+test$FoundationType[test$Foundation == 'Wood'] <- 6
+test$Foundation <- NULL
+# BsmtQual
+table(test$BsmtQual)
+test$BasementQual[test$BsmtQual == 'Ex'] <- 1
+test$BasementQual[test$BsmtQual == 'Fa'] <- 2
+test$BasementQual[test$BsmtQual == 'Gd'] <- 3
+test$BasementQual[test$BsmtQual == 'TA'] <- 4
+test$BasementQual[test$BsmtQual == 'NA'] <- 5
+test$BsmtQual <- NULL
+# BsmtCond
+table(test$BsmtCond)
+test$BasementCond[test$BsmtCond == 'Fa'] <- 1
+test$BasementCond[test$BsmtCond == 'Gd'] <- 2
+test$BasementCond[test$BsmtCond == 'Po'] <- 3
+test$BasementCond[test$BsmtCond == 'TA'] <- 4
+test$BasementCond[test$BsmtCond == 'NA'] <- 5
+test$BsmtCond <- NULL
+# BsmtExposure
+table(test$BsmtExposure)
+test$BasementExp[test$BsmtExposure == 'Av'] <- 1
+test$BasementExp[test$BsmtExposure == 'Gd'] <- 2
+test$BasementExp[test$BsmtExposure == 'Mn'] <- 3
+test$BasementExp[test$BsmtExposure == 'No'] <- 4
+test$BasementExp[test$BsmtExposure == 'NA'] <- 5
+test$BsmtExposure <- NULL
+# BsmtFinType1
+table(test$BsmtFinType1)
+test$BasementFin1[test$BsmtFinType1 == 'NA'] <- 1
+test$BasementFin1[test$BsmtFinType1 == 'ALQ'] <- 2
+test$BasementFin1[test$BsmtFinType1 == 'BLQ'] <- 3
+test$BasementFin1[test$BsmtFinType1 == 'GLQ'] <- 4
+test$BasementFin1[test$BsmtFinType1 == 'LwQ'] <- 5
+test$BasementFin1[test$BsmtFinType1 == 'Rec'] <- 6
+test$BasementFin1[test$BsmtFinType1 == 'Unf'] <- 7
+test$BsmtFinType1 <- NULL
+# BsmtFinType2
+table(test$BsmtFinType2)
+test$BasementFin2[test$BsmtFinType2 == 'NA'] <- 1
+test$BasementFin2[test$BsmtFinType2 == 'ALQ'] <- 2
+test$BasementFin2[test$BsmtFinType2 == 'BLQ'] <- 3
+test$BasementFin2[test$BsmtFinType2 == 'GLQ'] <- 4
+test$BasementFin2[test$BsmtFinType2 == 'LwQ'] <- 5
+test$BasementFin2[test$BsmtFinType2 == 'Rec'] <- 6
+test$BasementFin2[test$BsmtFinType2 == 'Unf'] <- 7
+test$BsmtFinType2 <- NULL
+# Heating
+table(test$Heating)
+test$HeatingGAS[!test$Heating %in% c("GasA", "GasW")] <- 0
+test$HeatingGAS[test$Heating %in% c("GasA", "GasW")] <- 1
+test$Heating <- NULL
+# HeatingQC
+table(test$HeatingQC)
+test$HeatQuality[test$HeatingQC == "Ex"] <- 1
+test$HeatQuality[test$HeatingQC == "Gd"] <- 2
+test$HeatQuality[test$HeatingQC == "TA"] <- 3
+test$HeatQuality[test$HeatingQC == "Fa"] <- 4
+test$HeatQuality[test$HeatingQC == "Po"] <- 5
+test$HeatingQC <- NULL
+# CentralAir
+table(test$CentralAir)
+test$AC[test$CentralAir != 'Y'] <- 0
+test$AC[test$CentralAir == 'Y'] <- 1
+test$CentralAir <- NULL
+# Electrical
+table(test$Electrical)
+test$ElectricalSystem[test$Electrical == 'NA' | test$Electrical == 'SBrkr'] <- 1
+test$ElectricalSystem[test$Electrical != 'NA' & test$Electrical != 'SBrkr'] <- 0
+test$Electrical <- NULL
+# KitchenQual
+table(test$KitchenQual)
+test$KitchenQuality[test$KitchenQual == 'Ex'] <- 1
+test$KitchenQuality[test$KitchenQual == 'Fa'] <- 2
+test$KitchenQuality[test$KitchenQual == 'Gd'] <- 3
+test$KitchenQuality[test$KitchenQual == 'TA'] <- 4
+test$KitchenQuality[test$KitchenQual == 'Po'] <- 5
+test$KitchenQual <- NULL
+# Functional
+table(test$Functional)
+test$FunType[test$Functional != 'Typ'] <- 0
+test$FunType[test$Functional == 'Typ'] <- 1
+test$Functional <- NULL
+# Fireplace
+table(test$FireplaceQu)
+test$FirePlaceQuality[test$FireplaceQu == 'Ex'] <- 1
+test$FirePlaceQuality[test$FireplaceQu == 'Fa'] <- 2
+test$FirePlaceQuality[test$FireplaceQu == 'Gd'] <- 3
+test$FirePlaceQuality[test$FireplaceQu == 'TA'] <- 4
+test$FirePlaceQuality[test$FireplaceQu == 'Po'] <- 5
+test$FirePlaceQuality[test$FireplaceQu == 'NA'] <- 6
+test$FireplaceQu <- NULL
+# GarrageTyoe
+table(test$GarageType)
+test$GarrageType[test$GarageType == '2Types'] <- 1
+test$GarrageType[test$GarageType == 'Attchd'] <- 2
+test$GarrageType[test$GarageType == 'Basment'] <- 3
+test$GarrageType[test$GarageType == 'BuiltIn'] <- 4
+test$GarrageType[test$GarageType == 'CarPort'] <- 5
+test$GarrageType[test$GarageType == 'Detchd'] <- 6
+test$GarrageType[test$GarageType == 'NA'] <- 7
+test$GarageType <- NULL
+# GarageFinish
+table(test$GarageFinish)
+test$GarageReady[!test$GarageFinish %in% c("Fin", "RFn")] <- 0
+test$GarageReady[test$GarageFinish %in% c("Fin", "RFn")] <- 1
+test$GarageFinish <- NULL
+# GarageQual
+table(test$GarageQual)
+test$GarageQuality[test$GarageQual == 'Ex'] <- 1
+test$GarageQuality[test$GarageQual == 'Fa'] <- 2
+test$GarageQuality[test$GarageQual == 'Gd'] <- 3
+test$GarageQuality[test$GarageQual == 'TA'] <- 4
+test$GarageQuality[test$GarageQual == 'Po'] <- 5
+test$GarageQuality[test$GarageQual == 'NA'] <- 6
+test$GarageQual <- NULL
+# GarageCond
+table(test$GarageCond)
+test$GarageCondition[test$GarageCond == 'Ex'] <- 1
+test$GarageCondition[test$GarageCond == 'Fa'] <- 2
+test$GarageCondition[test$GarageCond == 'Gd'] <- 3
+test$GarageCondition[test$GarageCond == 'TA'] <- 4
+test$GarageCondition[test$GarageCond == 'Po'] <- 5
+test$GarageCondition[test$GarageCond == 'NA'] <- 6
+test$GarageCond <- NULL
+# PavedDrive
+table(test$PavedDrive)
+test$drivewayPaved[test$PavedDrive != 'Y'] <- 0
+test$drivewayPaved[test$PavedDrive == 'Y'] <- 1
+test$drivewayPaved[is.na(test$PavedDrive)] <- 0
+test$PavedDrive <- NULL
+# PoolQC
+table(test$PoolQC)
+test$PoolQuality[test$PoolQC == 'Ex'] <- 1
+test$PoolQuality[test$PoolQC == 'Fa'] <- 2
+test$PoolQuality[test$PoolQC == 'Gd'] <- 3
+test$PoolQuality[test$PoolQC == 'TA'] <- 4
+test$PoolQuality[test$PoolQC == 'NA'] <- 5
+test$PoolQC <- NULL
+# Fence
+table(test$Fence)
+test$FencePrivate[test$Fence != 'GdPrv'] <- 0
+test$FencePrivate[test$Fence == 'GdPrv'] <- 1
+test$Fence <- NULL
+# SaleType
+table(test$SaleType)
+test$SaleTyp[test$SaleType == 'WD' | test$SaleType == 'CWD' | test$SaleType == 'VWD'] <- 1
+test$SaleTyp[test$SaleType == 'New'] <- 2
+test$SaleTyp[test$SaleType == 'COD'] <- 3
+test$SaleTyp[test$SaleType == 'Con' | test$SaleType == 'ConLw' | test$SaleType == 'ConLI' | test$SaleType == 'ConLD'] <- 4
+test$SaleTyp[test$SaleType == 'Oth'] <- 5
+test$SaleType <- NULL
+# SaleCondition
+table(test$SaleCondition)
+test$SaleCond[test$SaleCondition == 'Abnorml'] <- 1
+test$SaleCond[test$SaleCondition == 'AdjLand'] <- 2
+test$SaleCond[test$SaleCondition == 'Alloca'] <- 3
+test$SaleCond[test$SaleCondition == 'Family'] <- 4
+test$SaleCond[test$SaleCondition == 'Normal'] <- 5
+test$SaleCond[test$SaleCondition == 'Partial'] <- 6
+test$SaleCondition <- NULL
+
+colSums(is.na(test))
+test <- test %>%
+  select_if(is.numeric)
+
+test_mean <- colMeans(test, na.rm = T)
+test <- replace_na(test, replace = as.list(test_mean))
+colSums(is.na(test))
+
+test$SalePrice <- predict(reg, newdata = test)
+meanSalePrice <- mean(test$SalePrice, na.rm = T)
+test$SalePrice[is.na(test$SalePrice)] <- meanSalePrice
+is.na(test$SalePrice)
+test$SalePrice[test$SalePrice<0] <- meanSalePrice
+
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+
+```
+
+
+
+# 6th attempt
+Kaggele Score = 0.18538
+```{r}
+train <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/train.csv', stringsAsFactors=FALSE)
+test <- read.csv('/Users/venkatapochiraju/Documents/R-files/FDS/FDS/test.csv', stringsAsFactors=FALSE)
+# Removing outliers
+#ggplot(train) +
+#  geom_point(aes(x = GrLivArea, y = SalePrice))
+## Outliers - GrLivArea>4000
+#ggplot(train) +
+#  geom_point(aes(x = LotFrontage, y = SalePrice))
+## Outliers - LotFrontage>200
+#ggplot(train) +
+#  geom_point(aes(x = LotArea, y = SalePrice))
+## Outliers - LotArea>100000
+#ggplot(train) +
+#  geom_point(aes(x = MasVnrArea, y = SalePrice))
+## Outliers - MasVnrArea>1250
+#ggplot(train) +
+#  geom_point(aes(x = TotalBsmtSF, y = SalePrice))
+## Outliers - TotalBsmtSF>6000
+train[train$GrLivArea>4000,]$GrLivArea <- mean(train$GrLivArea)%>%as.numeric
+#train[train$LotFrontage>200,]$LotFrontage <- mean(train$LotFrontage)%>%as.numeric
+train[train$LotArea>100000,]$LotArea <- mean(train$LotArea)%>%as.numeric
+#train[train$MasVnrArea>1250,]$MasVnrArea <- mean(train$MasVnrArea)%>%as.numeric
+train[train$TotalBsmtSF>6000,]$TotalBsmtSF <- mean(train$TotalBsmtSF)%>%as.numeric
+#train$SalePrice <- log(train$SalePrice)
+test$SalePrice <- as.numeric(0)
+
+fullDataset <- rbind(train,test)
+colSums(is.na(fullDataset))
+#table(fullDataset$LotFrontage)
+# No linear feet of street connected to property
+fullDataset$LotFrontage[is.na(fullDataset$LotFrontage)] <- 0
+#table(fullDataset$MasVnrType)
+table(fullDataset$MasVnrArea)
+is.na(table(fullDataset$MasVnrArea))
+# No Masonry veener area in the house
+fullDataset$MasVnrArea[is.na(fullDataset$MasVnrArea)] <- 0
+table(fullDataset$BsmtFinSF1)
+# No basement SF area means there is no basement. So, we cannot replace it with mean
+#fullDataset$BsmtQual[is.na(fullDataset$BsmtQual)] <- 0  -- not required as NA is in the permitted values
+#fullDataset$BsmtCond[is.na(fullDataset$BsmtCond)] <- 0  -- not required as NA is in the permitted values
+#fullDataset$BsmtExposure[is.na(fullDataset$BsmtExposure)] <- 0  -- not required as NA is in the permitted values
+#fullDataset$BsmtFinType1[is.na(fullDataset$BsmtFinType1)] <- 0  -- not required as NA is in the permitted values
+#fullDataset$BsmtFinType2[is.na(fullDataset$BsmtFinType2)] <- 0  -- not required as NA is in the permitted values
+fullDataset$BsmtFinSF1[is.na(fullDataset$BsmtFinSF1)] <- 0
+fullDataset$BsmtFinSF2[is.na(fullDataset$BsmtFinSF2)] <- 0
+fullDataset$BsmtUnfSF[is.na(fullDataset$BsmtUnfSF)] <- 0
+fullDataset$TotalBsmtSF[is.na(fullDataset$TotalBsmtSF)] <- 0
+fullDataset$BsmtFullBath[is.na(fullDataset$BsmtFullBath)] <- 0
+fullDataset$BsmtHalfBath[is.na(fullDataset$BsmtHalfBath)] <- 0
+# Fireplaces - if na, that means no fireplace
+#fullDataset$FireplaceQu[is.na(fullDataset$FireplaceQu)] <- 0  -- not required as NA is in the permitted values
+# Garrage type - if na, means no garrage for the house
+#fullDataset$GarageType[is.na(fullDataset$GarageType)] <- 0  -- not required as NA is in the permitted values
+fullDataset$GarageYrBlt[is.na(fullDataset$GarageYrBlt)] <- 0
+fullDataset$GarageCars[is.na(fullDataset$GarageCars)] <- 0
+fullDataset$GarageArea[is.na(fullDataset$GarageArea)] <- 0
+#ggplot(fullDataset) +
+#    geom_point(aes(x = GarageYrBlt, y = SalePrice))
+## There are one or more points in the graph that are in the future.
+fullDataset$GarageYrBlt[fullDataset$GarageYrBlt > 2018] <- 2017
+#ggplot(fullDataset) +
+#    geom_point(aes(x = GarageYrBlt, y = SalePrice))
+# Lets try to make all the variables numeric, looking at the list of data - data_description.txt
+# Lets try to make all the variables numeric, looking at the list of data - data_description.txt
+# MSZoning
+table(fullDataset$MSZoning)
+fullDataset$Zoning[fullDataset$MSZoning == 'C (all)'] <- 1
+fullDataset$Zoning[fullDataset$MSZoning == 'FV'] <- 2
+fullDataset$Zoning[fullDataset$MSZoning == 'RH'] <- 3
+fullDataset$Zoning[fullDataset$MSZoning == 'RL'] <- 4
+fullDataset$Zoning[fullDataset$MSZoning == 'RM'] <- 5
+fullDataset$MSZoning <- NULL
+# Street
+table(fullDataset$Street)
+fullDataset$RoadType[fullDataset$Street == 'Grvl'] <- 0
+fullDataset$RoadType[fullDataset$Street == 'Pave'] <- 1
+fullDataset$Street <- NULL
+# Alley
+table(fullDataset$Alley)
+fullDataset$AlleyType[fullDataset$Alley == 'Grvl'] <- 0
+fullDataset$AlleyType[fullDataset$Alley == 'Pave'] <- 1
+fullDataset$Alley <- NULL
+# LotShape
+table(fullDataset$LotShape)
+fullDataset$Shape[fullDataset$LotShape == 'Reg'] <- 0
+fullDataset$Shape[fullDataset$LotShape != 'Reg'] <- 1  # 925 are regular, IR1, IR2, IR3 are a lot less
+fullDataset$LotShape <- NULL
+# LandCountour  
+table(fullDataset$LandContour)
+fullDataset$Flatness[fullDataset$LandContour == 'Lvl'] <- 0
+fullDataset$Flatness[fullDataset$LandContour != 'Lvl'] <- 1 # 1131 are flat, others are a lot less
+fullDataset$LandContour <- NULL
+# Utilities
+table(fullDataset$Utilities)
+fullDataset$UtilType[fullDataset$Utilities != 'AllPub'] <- 0
+fullDataset$UtilType[fullDataset$Utilities == 'AllPub'] <- 1
+fullDataset$Utilities <- NULL
+# LotConfig
+table(fullDataset$LotConfig)
+fullDataset$LotCon[fullDataset$LotConfig == 'Corner'] <- 1
+fullDataset$LotCon[fullDataset$LotConfig == 'CulDSac'] <- 2
+fullDataset$LotCon[fullDataset$LotConfig == 'FR2'] <- 3
+fullDataset$LotCon[fullDataset$LotConfig == 'FR3'] <- 4
+fullDataset$LotCon[fullDataset$LotConfig == 'Inside'] <- 5
+fullDataset$LotConfig <- NULL
+# LandSlope
+table(fullDataset$LandSlope)
+fullDataset$Slope[fullDataset$LandSlope != 'Gtl'] <- 0
+fullDataset$Slope[fullDataset$LandSlope == 'Gtl'] <- 1
+fullDataset$LandSlope <- NULL
+# BldgType
+table(fullDataset$BldgType)
+fullDataset$BuildingType[fullDataset$BldgType == '1Fam'] <- 1
+fullDataset$BuildingType[fullDataset$BldgType == 'TwnhsE'] <- 1
+fullDataset$BuildingType[fullDataset$BldgType != '1Fam'] <- 0
+fullDataset$BuildingType[fullDataset$BldgType != 'TwnhsE'] <- 0
+fullDataset$BldgType <- NULL
+# HouseStyle
+table(fullDataset$HouseStyle)
+#ggplot(fullDataset) +
+#    geom_point(aes(x = HouseStyle, y = SalePrice))
+fullDataset$HouseStyle[fullDataset$HouseStyle == '1.5Fin'] <- 1
+fullDataset$HouseStyle[fullDataset$HouseStyle == '1.5Unf'] <- 2
+fullDataset$HouseStyle[fullDataset$HouseStyle == '1Story'] <- 3
+fullDataset$HouseStyle[fullDataset$HouseStyle == '2.5Fin'] <- 4
+fullDataset$HouseStyle[fullDataset$HouseStyle == '2.5Unf'] <- 5
+fullDataset$HouseStyle[fullDataset$HouseStyle == '2Story'] <- 6
+fullDataset$HouseStyle[fullDataset$HouseStyle == 'SFoyer'] <- 7
+fullDataset$HouseStyle[fullDataset$HouseStyle == 'SLvl'] <- 8
+fullDataset$HouseStyle <- NULL
+# RoofStyle
+table(fullDataset$RoofStyle)
+# As Gable, Hip, and Shed are almost of similar structure, lets group them together
+fullDataset$RoofType[!fullDataset$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 0
+fullDataset$RoofType[fullDataset$RoofStyle %in% c('Gable','Hip', 'Shed')] <- 1
+fullDataset$RoofStyle <- NULL
+# RoofMatl
+table(fullDataset$RoofMatl)
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'ClyTile'] <- 1
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'CompShg'] <- 2
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'Membran'] <- 3
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'Metal'] <- 4
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'Roll'] <- 5
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'Tar&Grv'] <- 6
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'WdShake'] <- 7
+fullDataset$RoofMaterial[fullDataset$RoofMatl == 'WdShngl'] <- 8
+fullDataset$RoofMatl <- NULL
+# MasVnrType
+table(fullDataset$MasVnrType)
+#cor(fullDataset$SalePrice,fullDataset)
+fullDataset$MasonryType[fullDataset$MasVnrType == 'None'] <- 0
+fullDataset$MasonryType[fullDataset$MasVnrType != 'None'] <- 1
+fullDataset$MasVnrType <- NULL
+# ExterQual
+table(fullDataset$ExterQual)
+fullDataset$ExtQuality[fullDataset$ExterQual == 'Ex'] <- 1
+fullDataset$ExtQuality[fullDataset$ExterQual == 'Fa'] <- 2
+fullDataset$ExtQuality[fullDataset$ExterQual == 'Gd'] <- 3
+fullDataset$ExtQuality[fullDataset$ExterQual == 'TA'] <- 4
+fullDataset$ExterQual <- NULL
+# ExterCond
+table(fullDataset$ExterCond)
+fullDataset$ExtCond[fullDataset$ExterCond == 'Ex'] <- 1  
+fullDataset$ExtCond[fullDataset$ExterCond == 'Fa'] <- 2  
+fullDataset$ExtCond[fullDataset$ExterCond == 'Gd'] <- 3  
+fullDataset$ExtCond[fullDataset$ExterCond == 'Po'] <- 4  
+fullDataset$ExtCond[fullDataset$ExterCond == 'TA'] <- 5
+fullDataset$ExterCond <- NULL
+# Foundation
+table(fullDataset$Foundation)
+fullDataset$FoundationType[fullDataset$Foundation == 'BrkTil'] <- 1
+fullDataset$FoundationType[fullDataset$Foundation == 'CBlock'] <- 2
+fullDataset$FoundationType[fullDataset$Foundation == 'PConc'] <- 3
+fullDataset$FoundationType[fullDataset$Foundation == 'Slab'] <- 4
+fullDataset$FoundationType[fullDataset$Foundation == 'Stone'] <- 5
+fullDataset$FoundationType[fullDataset$Foundation == 'Wood'] <- 6
+fullDataset$Foundation <- NULL
+# BsmtQual
+table(fullDataset$BsmtQual)
+fullDataset$BasementQual[fullDataset$BsmtQual == 'Ex'] <- 1
+fullDataset$BasementQual[fullDataset$BsmtQual == 'Fa'] <- 2
+fullDataset$BasementQual[fullDataset$BsmtQual == 'Gd'] <- 3
+fullDataset$BasementQual[fullDataset$BsmtQual == 'TA'] <- 4
+fullDataset$BasementQual[fullDataset$BsmtQual == 'NA'] <- 5
+fullDataset$BsmtQual <- NULL
+# BsmtCond
+table(fullDataset$BsmtCond)
+fullDataset$BasementCond[fullDataset$BsmtCond == 'Fa'] <- 1
+fullDataset$BasementCond[fullDataset$BsmtCond == 'Gd'] <- 2
+fullDataset$BasementCond[fullDataset$BsmtCond == 'Po'] <- 3
+fullDataset$BasementCond[fullDataset$BsmtCond == 'TA'] <- 4
+fullDataset$BasementCond[fullDataset$BsmtCond == 'NA'] <- 5
+fullDataset$BsmtCond <- NULL
+# BsmtExposure
+table(fullDataset$BsmtExposure)
+fullDataset$BasementExp[fullDataset$BsmtExposure == 'Av'] <- 1
+fullDataset$BasementExp[fullDataset$BsmtExposure == 'Gd'] <- 2
+fullDataset$BasementExp[fullDataset$BsmtExposure == 'Mn'] <- 3
+fullDataset$BasementExp[fullDataset$BsmtExposure == 'No'] <- 4
+fullDataset$BasementExp[fullDataset$BsmtExposure == 'NA'] <- 5
+fullDataset$BsmtExposure <- NULL
+# BsmtFinType1
+table(fullDataset$BsmtFinType1)
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'NA'] <- 1
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'ALQ'] <- 2
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'BLQ'] <- 3
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'GLQ'] <- 4
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'LwQ'] <- 5
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'Rec'] <- 6
+fullDataset$BasementFin1[fullDataset$BsmtFinType1 == 'Unf'] <- 7
+fullDataset$BsmtFinType1 <- NULL
+# BsmtFinType2
+table(fullDataset$BsmtFinType2)
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'NA'] <- 1
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'ALQ'] <- 2
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'BLQ'] <- 3
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'GLQ'] <- 4
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'LwQ'] <- 5
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'Rec'] <- 6
+fullDataset$BasementFin2[fullDataset$BsmtFinType2 == 'Unf'] <- 7
+fullDataset$BsmtFinType2 <- NULL
+# Heating
+table(fullDataset$Heating)
+fullDataset$HeatingGAS[!fullDataset$Heating %in% c("GasA", "GasW")] <- 0
+fullDataset$HeatingGAS[fullDataset$Heating %in% c("GasA", "GasW")] <- 1
+fullDataset$Heating <- NULL
+# HeatingQC
+table(fullDataset$HeatingQC)
+fullDataset$HeatQuality[fullDataset$HeatingQC == "Ex"] <- 1
+fullDataset$HeatQuality[fullDataset$HeatingQC == "Gd"] <- 2
+fullDataset$HeatQuality[fullDataset$HeatingQC == "TA"] <- 3
+fullDataset$HeatQuality[fullDataset$HeatingQC == "Fa"] <- 4
+fullDataset$HeatQuality[fullDataset$HeatingQC == "Po"] <- 5
+fullDataset$HeatingQC <- NULL
+# CentralAir
+table(fullDataset$CentralAir)
+fullDataset$AC[fullDataset$CentralAir != 'Y'] <- 0
+fullDataset$AC[fullDataset$CentralAir == 'Y'] <- 1
+fullDataset$CentralAir <- NULL
+# Electrical
+table(fullDataset$Electrical)
+fullDataset$ElectricalSystem[fullDataset$Electrical == 'NA' | fullDataset$Electrical == 'SBrkr'] <- 1
+fullDataset$ElectricalSystem[fullDataset$Electrical != 'NA' & fullDataset$Electrical != 'SBrkr'] <- 0
+fullDataset$Electrical <- NULL
+# KitchenQual
+table(fullDataset$KitchenQual)
+fullDataset$KitchenQuality[fullDataset$KitchenQual == 'Ex'] <- 1
+fullDataset$KitchenQuality[fullDataset$KitchenQual == 'Fa'] <- 2
+fullDataset$KitchenQuality[fullDataset$KitchenQual == 'Gd'] <- 3
+fullDataset$KitchenQuality[fullDataset$KitchenQual == 'TA'] <- 4
+fullDataset$KitchenQuality[fullDataset$KitchenQual == 'Po'] <- 5
+fullDataset$KitchenQual <- NULL
+# Functional
+table(fullDataset$Functional)
+fullDataset$FunType[fullDataset$Functional != 'Typ'] <- 0
+fullDataset$FunType[fullDataset$Functional == 'Typ'] <- 1
+fullDataset$Functional <- NULL
+# Fireplace
+table(fullDataset$FireplaceQu)
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'Ex'] <- 1
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'Fa'] <- 2
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'Gd'] <- 3
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'TA'] <- 4
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'Po'] <- 5
+fullDataset$FirePlaceQuality[fullDataset$FireplaceQu == 'NA'] <- 6
+fullDataset$FireplaceQu <- NULL
+# GarrageTyoe
+table(fullDataset$GarageType)
+fullDataset$GarrageType[fullDataset$GarageType == '2Types'] <- 1
+fullDataset$GarrageType[fullDataset$GarageType == 'Attchd'] <- 2
+fullDataset$GarrageType[fullDataset$GarageType == 'Basment'] <- 3
+fullDataset$GarrageType[fullDataset$GarageType == 'BuiltIn'] <- 4
+fullDataset$GarrageType[fullDataset$GarageType == 'CarPort'] <- 5
+fullDataset$GarrageType[fullDataset$GarageType == 'Detchd'] <- 6
+fullDataset$GarrageType[fullDataset$GarageType == 'NA'] <- 7
+fullDataset$GarageType <- NULL
+# GarageFinish
+table(fullDataset$GarageFinish)
+fullDataset$GarageReady[!fullDataset$GarageFinish %in% c("Fin", "RFn")] <- 0
+fullDataset$GarageReady[fullDataset$GarageFinish %in% c("Fin", "RFn")] <- 1
+fullDataset$GarageFinish <- NULL
+# GarageQual
+table(fullDataset$GarageQual)
+fullDataset$GarageQuality[fullDataset$GarageQual == 'Ex'] <- 1
+fullDataset$GarageQuality[fullDataset$GarageQual == 'Fa'] <- 2
+fullDataset$GarageQuality[fullDataset$GarageQual == 'Gd'] <- 3
+fullDataset$GarageQuality[fullDataset$GarageQual == 'TA'] <- 4
+fullDataset$GarageQuality[fullDataset$GarageQual == 'Po'] <- 5
+fullDataset$GarageQuality[fullDataset$GarageQual == 'NA'] <- 6
+fullDataset$GarageQual <- NULL
+# GarageCond
+table(fullDataset$GarageCond)
+fullDataset$GarageCondition[fullDataset$GarageCond == 'Ex'] <- 1
+fullDataset$GarageCondition[fullDataset$GarageCond == 'Fa'] <- 2
+fullDataset$GarageCondition[fullDataset$GarageCond == 'Gd'] <- 3
+fullDataset$GarageCondition[fullDataset$GarageCond == 'TA'] <- 4
+fullDataset$GarageCondition[fullDataset$GarageCond == 'Po'] <- 5
+fullDataset$GarageCondition[fullDataset$GarageCond == 'NA'] <- 6
+fullDataset$GarageCond <- NULL
+# PavedDrive
+table(fullDataset$PavedDrive)
+fullDataset$drivewayPaved[fullDataset$PavedDrive != 'Y'] <- 0
+fullDataset$drivewayPaved[fullDataset$PavedDrive == 'Y'] <- 1
+fullDataset$drivewayPaved[is.na(fullDataset$PavedDrive)] <- 0
+fullDataset$PavedDrive <- NULL
+# PoolQC
+table(fullDataset$PoolQC)
+fullDataset$PoolQuality[fullDataset$PoolQC == 'Ex'] <- 1
+fullDataset$PoolQuality[fullDataset$PoolQC == 'Fa'] <- 2
+fullDataset$PoolQuality[fullDataset$PoolQC == 'Gd'] <- 3
+fullDataset$PoolQuality[fullDataset$PoolQC == 'TA'] <- 4
+fullDataset$PoolQuality[fullDataset$PoolQC == 'NA'] <- 5
+fullDataset$PoolQC <- NULL
+# Fence
+table(fullDataset$Fence)
+fullDataset$FencePrivate[fullDataset$Fence != 'GdPrv'] <- 0
+fullDataset$FencePrivate[fullDataset$Fence == 'GdPrv'] <- 1
+fullDataset$Fence <- NULL
+# SaleType
+table(fullDataset$SaleType)
+fullDataset$SaleTyp[fullDataset$SaleType == 'WD' | fullDataset$SaleType == 'CWD' | fullDataset$SaleType == 'VWD'] <- 1
+fullDataset$SaleTyp[fullDataset$SaleType == 'New'] <- 2
+fullDataset$SaleTyp[fullDataset$SaleType == 'COD'] <- 3
+fullDataset$SaleTyp[fullDataset$SaleType == 'Con' | fullDataset$SaleType == 'ConLw' | fullDataset$SaleType == 'ConLI' | fullDataset$SaleType == 'ConLD'] <- 4
+fullDataset$SaleTyp[fullDataset$SaleType == 'Oth'] <- 5
+fullDataset$SaleType <- NULL
+# SaleCondition
+table(fullDataset$SaleCondition)
+fullDataset$SaleCond[fullDataset$SaleCondition == 'Abnorml'] <- 1
+fullDataset$SaleCond[fullDataset$SaleCondition == 'AdjLand'] <- 2
+fullDataset$SaleCond[fullDataset$SaleCondition == 'Alloca'] <- 3
+fullDataset$SaleCond[fullDataset$SaleCondition == 'Family'] <- 4
+fullDataset$SaleCond[fullDataset$SaleCondition == 'Normal'] <- 5
+fullDataset$SaleCond[fullDataset$SaleCondition == 'Partial'] <- 6
+fullDataset$SaleCondition <- NULL
+
+colSums(is.na(fullDataset))
+fullDataset <- fullDataset %>%
+  select_if(is.numeric)
+fullDataset_mean <- colMeans(fullDataset, na.rm = T)
+fullDataset <- replace_na(fullDataset, replace = as.list(fullDataset_mean))
+colSums(is.na(fullDataset))
+
+train <- fullDataset[1:1460,]
+test <- fullDataset[1461:2919,]
+reg <- lm(SalePrice ~ .,data = train)
+summary(reg)
+
+pred <- predict(reg, newdata = test)
+test$SalePrice <- pred
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+
+```
+
+# 7th attempt
+## First run the above (6th attempt)
+Kaggle Score = 0.17573
+```{r}
+# Considering only the main variables (Pr values from 0 to 0.001) from the previous model from above ->
+reg1 <- lm(SalePrice ~ MSSubClass+LotArea+OverallQual+OverallCond+YearBuilt+MasVnrArea+BsmtFinSF1+BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+BedroomAbvGr+KitchenAbvGr+Fireplaces+PoolArea+MasonryType+ExtQuality+BasementQual+BasementExp+KitchenQuality+FunType,data = train)
+summary(reg1)
+pred <- predict(reg1, newdata = test)
+test$SalePrice <- pred
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+```
+
+# 8th attempt - Random Forest on the same data
+## First run the above (6th attempt)
+Kaggle Score = 0.14691
+```{r}
+library(randomForest)
+rforest1 <- randomForest(SalePrice ~ ., data = train)
+summary(rforest1)
+pred <- predict(rforest1,test)
+test$SalePrice <- pred
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+# Kaggle Score = 0.14691
+##########
+rforest2 <- randomForest(log(SalePrice) ~ ., data = train)
+summary(rforest2)
+pred <- predict(rforest2,test)
+test$SalePrice <- exp(pred)
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+# Kaggle score = 0.14364
+```
+
+# 9th attempt - XGBoost
+## First run the above (6th attempt)
+Kaggle Score = 0.13788
+```{r}
+library(xgboost)
+set.seed(123)
+################ trying out xgboost for the same data
+xgboost1 = xgboost(data = as.matrix(train), nfold = 5, nrounds = 2500, nthread = 10, label = as.matrix(train$SalePrice),  verbose = FALSE, objective = "reg:linear", eval_metric = "rmse", max_depth = 8, min_child_weight = 1.5, subsample = 0.5, colsample_bytree = 0.5, gamma = 0, eta = 0.01)
+pred <- predict(xgboost1, newdata = as.matrix(test))
+test$SalePrice <- pred
+test %>%
+  select(Id, SalePrice) %>%
+  write.csv(file = '/Users/venkatapochiraju/Documents/R-files/FDS/FDS/mypred_1.csv', row.names = F)
+# Kaggle Score = 0.13788
+```
+
